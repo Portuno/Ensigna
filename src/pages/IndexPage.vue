@@ -194,12 +194,12 @@ export default {
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
       accounts.value = await window.ethereum.request({method: 'eth_requestAccounts'});
-      // const overrides = {
-      //   from: accounts.value[0],
-      //  value: 10,
-      // };
+       const overrides = {
+         from: accounts.value[0],
+        value: parseEther(String(0.1 * quantity.value)),
+       };
       try {
-        const transaction = await contract.mint(accounts.value[0], quantity.value, {value: parseEther(String(0.1 * quantity.value))});
+        const transaction = await contract.mint(accounts.value[0], quantity.value, overrides);
         const res = await transaction.wait();
         console.log('res   ', res);
         $q.notify({
