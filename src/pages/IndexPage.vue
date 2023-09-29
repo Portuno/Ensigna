@@ -166,19 +166,19 @@ export default {
         // Check if MetaMask is installed
         if (typeof window.ethereum !== "undefined") {
           // Specify the Rootstock Network's RPC URL
-          const rpcUrl = "https://public-node.rsk.co";
+          const rpcUrl = "https://public-node.testnet.rsk.co/";
 
           // Request access to the user's MetaMask account on the Rootstock Network
           await window.ethereum.request({
             method: "wallet_addEthereumChain",
             params: [
               {
-                chainId: "0x1e",
-                chainName: "RSK Mainnet",
+                chainId: '0x1f',
+                chainName: 'Rootstock Testnet',
                 rpcUrls: [rpcUrl],
                 nativeCurrency: {
-                  name: "RBTC",
-                  symbol: "RBTC",
+                  name: "tRBTC",
+                  symbol: "tRBTC",
                   decimals: 18,
                 },
               },
@@ -236,10 +236,7 @@ export default {
       connectToMetaMask, // Expose the connectToMetaMask function to the template
     };
   },
-  methods: {
-    // Implement any other methods your component needs here
-  },
-};
+  };
 </script>
 
 <style>
