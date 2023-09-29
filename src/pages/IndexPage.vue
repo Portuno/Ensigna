@@ -165,7 +165,7 @@ export default {
     const tab = ref("Pools"); // Set the default tab to "Pools"
     const showNewCard = ref(false); // Initially hide the new card
     const quantity = ref(1); // Initialize input value
-    const totalMinted = ref('0');
+    const totalMinted = ref(0);
     const accounts = ref([]);
     const $q = useQuasar();
 
