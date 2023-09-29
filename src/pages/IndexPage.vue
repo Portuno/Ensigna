@@ -2,15 +2,15 @@
   <div class="q-pa-md">
     <!-- Navigation bar -->
     <q-toolbar class="bg-purple text-white shadow-2 rounded-borders">
-      <q-btn flat label="Ensigna" />
+      <q-btn flat label="Ensigna"/>
 
       <!-- Tabs -->
       <div class="tabs-container">
         <div class="justify-center">
           <q-tabs v-model="tab" shrink>
-            <q-tab name="Pools" label="Pools" class="tab-hover-effect" />
-            <q-tab name="Staking" label="Staking" class="tab-hover-effect" />
-            <q-tab name="Prizes" label="Prizes" class="tab-hover-effect" />
+            <q-tab name="Pools" label="Pools" class="tab-hover-effect"/>
+            <q-tab name="Staking" label="Staking" class="tab-hover-effect"/>
+            <q-tab name="Prizes" label="Prizes" class="tab-hover-effect"/>
           </q-tabs>
         </div>
       </div>
@@ -34,14 +34,14 @@
           <q-card-section>
             <!-- Logo -->
             <div class="logo-container">
-              <img src="/path-to-your-logo.png" alt="Logo" class="logo" />
+              <img src="/path-to-your-logo.png" alt="Logo" class="logo"/>
             </div>
             <!-- Line 1 -->
             <div class="text-h6">Pool 1</div>
             <!-- Line 2 -->
             <div class="q-mt-sm">Description: Lorem ipsum dolor sit amet.</div>
             <!-- Line 3 -->
-            <div class="q-mt-sm">Total Liquidity: $1,000,000</div>
+            <div class="q-mt-sm">Total Liquidity: ${{ totalMinted }}</div>
             <!-- Line 4 -->
             <div class="q-mt-sm">APY: 5%</div>
             <!-- Line 5 -->
@@ -83,7 +83,7 @@
           <div class="q-mt-md">
             <q-input
               outlined
-              v-model="inputValue"
+              v-model="quantity"
               type="number"
               :min="0"
               :step="1"
@@ -99,7 +99,7 @@
 
           <!-- Buy button -->
           <div class="q-mt-md">
-            <q-btn rounded color="primary" label="Buy" @click="buyTokens" />
+            <q-btn rounded color="primary" label="Buy" @click="buyTokens"/>
           </div>
         </q-card-section>
       </q-card>
@@ -142,10 +142,10 @@
           <div class="q-mt-sm">{{ userTickets }}</div>
 
           <!-- Redeem button (disabled and gray) -->
-          <q-btn rounded color="grey" label="Redeem" :disable="true" />
+          <q-btn rounded color="grey" label="Redeem" :disable="true"/>
 
           <!-- Claim button (yellow circle) -->
-          <q-btn rounded color="warning" label="Claim" class="yellow-circle" />
+          <q-btn rounded color="warning" label="Claim" class="yellow-circle"/>
         </q-card-section>
       </q-card>
     </div>
@@ -153,14 +153,81 @@
 </template>
 
 <script>
-import { ref } from "vue";
+import {onMounted, ref} from "vue";
+import lottoTickets from '../contractsTokens/LottoTickets.json';
+import {ethers,parseEther} from 'ethers';
+import {useQuasar} from 'quasar';
+import collectionConf from '../collectionConfig.json';
+
 
 export default {
   setup() {
     const tab = ref("Pools"); // Set the default tab to "Pools"
     const showNewCard = ref(false); // Initially hide the new card
-    const inputValue = ref(0); // Initialize input value
+    const quantity = ref(1); // Initialize input value
+    const totalMinted = ref('0');
+    const accounts = ref([]);
+    const $q = useQuasar();
 
+    const registerUser = async () => {
+      if (accounts.value[0].match(/^0x[a-fA-f0-9]{40}$/)) {
+        const datas = {
+          id: uuidv4(),
+          adress: accounts.value[0],
+        };
+        ApiHelper.addToCollection('users', datas).then(async () => {
+          $q.notify({
+            message: 'You are now registered',
+            color: 'positive',
+          });
+          await checkIfUserIsRegistered();
+        }).catch(() => {
+          $q.notify({
+            message: 'errror',
+            color: 'negative',
+          });
+        });
+      }
+    };
+    const buyTokens = async () => {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
+      accounts.value = await window.ethereum.request({method: 'eth_requestAccounts'});
+      // const overrides = {
+      //   from: accounts.value[0],
+      //  value: 10,
+      // };
+      try {
+        const transaction = await contract.mint(accounts.value[0], quantity.value, {value: parseEther(String(0.1 * quantity.value))});
+        const res = await transaction.wait();
+        console.log('res   ', res);
+        $q.notify({
+          message: 'Mint done',
+          color: 'positive',
+        });
+        await fetchData();
+      } catch (err) {
+        console.log('err  ', err);
+        $q.notify({
+          message: err.message,
+          color: 'negative',
+        });
+      }
+    };
+    const getAccounts = async () => {
+      if (typeof window.ethereum !== 'undefined') {
+        accounts.value = await window.ethereum.request({method: 'eth_requestAccounts'});
+      }
+    };
+    const fetchData = async () => {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      // eslint-disable-next-line no-unused-vars
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
+      totalMinted.value = String(await contract.getTotalMinted());
+      console.log('totalMinted.value   ', totalMinted.value);
+    };
     const connectToMetaMask = async () => {
       try {
         // Check if MetaMask is installed
@@ -186,7 +253,7 @@ export default {
           });
 
           // Connect to the Rootstock Network
-          await window.ethereum.request({ method: "eth_requestAccounts" });
+          await window.ethereum.request({method: "eth_requestAccounts"});
 
           // You are now connected to the Rootstock Network
           console.log("Connected to Rootstock Network!");
@@ -208,25 +275,28 @@ export default {
     };
 
     const incrementInput = () => {
-      inputValue.value += 1; // Increment the input value by 1
+      quantity.value += 1; // Increment the input value by 1
     };
 
     const decrementInput = () => {
-      inputValue.value -= 1; // Decrement the input value by 1
+      quantity.value -= 1; // Decrement the input value by 1
     };
 
     const setMaxInput = () => {
-      inputValue.value = 100; // Set the input value to the maximum value (adjust as needed)
+      quantity.value = 100; // Set the input value to the maximum value (adjust as needed)
     };
 
-    const buyTokens = () => {
-      // Implement your logic to buy tokens here
-    };
+
+    onMounted(async () => {
+      await getAccounts();
+      await fetchData();
+    });
 
     return {
       tab,
       showNewCard,
-      inputValue,
+      quantity,
+      totalMinted,
       openNewCard,
       closeNewCard,
       incrementInput,
@@ -236,7 +306,7 @@ export default {
       connectToMetaMask, // Expose the connectToMetaMask function to the template
     };
   },
-  };
+};
 </script>
 
 <style>
@@ -306,6 +376,7 @@ export default {
   right: 5px;
   cursor: pointer;
 }
+
 /* Style for the "PRIZES" card container */
 .prizes-container {
   display: flex;
