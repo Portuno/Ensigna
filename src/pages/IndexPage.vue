@@ -34,7 +34,7 @@
           <q-card-section>
             <!-- Logo -->
             <div class="logo-container">
-              <img src="/path-to-your-logo.png" alt="Logo" class="logo"/>
+              <img src="/logo.jpg" alt="Logo" class="logo"/>
             </div>
             <!-- Line 1 -->
             <div class="text-h6">Pool 1</div>
