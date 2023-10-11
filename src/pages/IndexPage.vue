@@ -196,7 +196,7 @@ export default {
       accounts.value = await window.ethereum.request({method: 'eth_requestAccounts'});
        const overrides = {
          from: accounts.value[0],
-        value: parseEther(String(0.1 * quantity.value)),
+        value: parseEther(String(0.0001 * quantity.value)),
        };
       try {
         const transaction = await contract.mint(accounts.value[0], quantity.value, overrides);
