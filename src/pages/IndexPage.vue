@@ -158,6 +158,7 @@ import lottoTickets from '../contractsTokens/LottoTickets.json';
 import {ethers,parseEther} from 'ethers';
 import {useQuasar} from 'quasar';
 import collectionConf from '../collectionConfig.json';
+import Utils from "src/Utils";
 
 
 export default {
@@ -199,6 +200,7 @@ export default {
         value: parseEther(String(0.0001 * quantity.value)),
        };
       try {
+        Utils.showLoader();
         const transaction = await contract.mint(accounts.value[0], quantity.value, overrides);
         const res = await transaction.wait();
         console.log('res   ', res);
@@ -207,8 +209,10 @@ export default {
           color: 'positive',
         });
         await fetchData();
+        Utils.closeLoader();
       } catch (err) {
         console.log('err  ', err);
+        Utils.closeLoader();
         $q.notify({
           message: err.message,
           color: 'negative',
