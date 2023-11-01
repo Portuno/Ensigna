@@ -45,7 +45,7 @@
             <!-- Line 4 -->
             <div class="q-mt-sm">APY: 5%</div>
             <!-- Line 5 -->
-            <div class="q-mt-sm">Stake Tokens: ETH, DAI</div>
+            <div class="q-mt-sm">Stake Tokens: Doc</div>
             <!-- Button to Access -->
             <div class="q-mt-md">
               <!-- If the new card is not open, show the "To Access" button -->
@@ -100,6 +100,7 @@
           <!-- Buy button -->
           <div class="q-mt-md">
             <q-btn rounded color="primary" label="Buy" @click="buyTokens"/>
+              <q-btn rounded color="primary" label="Mint Doc" @click="mintDoCToken"/>
           </div>
         </q-card-section>
       </q-card>
@@ -155,10 +156,11 @@
 <script>
 import {onMounted, ref} from "vue";
 import lottoTickets from '../contractsTokens/LottoTickets.json';
-import {ethers,parseEther} from 'ethers';
+import {ethers, parseEther} from 'ethers';
 import {useQuasar} from 'quasar';
 import collectionConf from '../collectionConfig.json';
 import Utils from "src/Utils";
+
 
 
 export default {
@@ -170,6 +172,32 @@ export default {
     const accounts = ref([]);
     const $q = useQuasar();
 
+    const mintDoCToken = async () => {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        // The ABI of the DocToken contract (simplified for this example)
+        const docTokenAbi = [
+            'function mintDocVendors(uint256 btcToMint, address vendorAccount) public payable'
+        ];
+
+        // Create a contract instance
+        const docTokenContract = new ethers.Contract(collectionConf.docContract, docTokenAbi, signer);
+
+        // The amount of tokens to mint
+        const amount =  parseEther('0.0009');
+      //  const rbtcPrice =
+        const overrides = {
+            value: parseEther('0.001'),
+        };
+
+        // Call the mint function
+        const tx = await docTokenContract.mintDocVendors(amount,'0x84b895A1b7be8fAc64d43757479281Bf0b5E3719',overrides);
+
+        // Wait for the transaction to be mined
+        const receipt = await tx.wait();
+        console.log('Transaction mined:', receipt);
+
+    }
     const registerUser = async () => {
       if (accounts.value[0].match(/^0x[a-fA-f0-9]{40}$/)) {
         const datas = {
@@ -194,14 +222,18 @@ export default {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
+      const docTokenContract = new ethers.Contract('0xCB46c0ddc60D18eFEB0E586C17Af6ea36452Dae0', [
+        'function approve(address spender, uint256 amount) external returns (bool)'
+      ], signer);
       accounts.value = await window.ethereum.request({method: 'eth_requestAccounts'});
-       const overrides = {
-         from: accounts.value[0],
-        value: parseEther(String(0.0001 * quantity.value)),
-       };
+      const overrides = {
+        from: accounts.value[0],
+        value: parseEther(String(1 * quantity.value)),
+      };
       try {
         Utils.showLoader();
-        const transaction = await contract.mint(accounts.value[0], quantity.value, overrides);
+        await docTokenContract.approve(collectionConf.adress, overrides.value);
+        const transaction = await contract.mintWithDOC(accounts.value[0], quantity.value);
         const res = await transaction.wait();
         console.log('res   ', res);
         $q.notify({
@@ -225,12 +257,13 @@ export default {
       }
     };
     const fetchData = async () => {
+      Utils.showLoader();
       const provider = new ethers.BrowserProvider(window.ethereum);
       // eslint-disable-next-line no-unused-vars
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
-      totalMinted.value = String(await contract.getTotalMinted());
-      console.log('totalMinted.value   ', totalMinted.value);
+      totalMinted.value = String(await contract.getCapital());
+      Utils.closeLoader();
     };
     const connectToMetaMask = async () => {
       try {
@@ -245,13 +278,13 @@ export default {
             params: [
               {
                 chainId: '0x1f',
-                chainName: 'Rootstock Testnet',
+                chainName: 'Rsk Testnet',
                 rpcUrls: [rpcUrl],
-                nativeCurrency: {
-                  name: "tRBTC",
-                  symbol: "tRBTC",
-                  decimals: 18,
-                },
+                //  nativeCurrency: {
+                //   name: "tRBTC",
+                //   symbol: "tRBTC",
+                //   decimals: 18,
+                // },
               },
             ],
           });
@@ -294,6 +327,7 @@ export default {
     onMounted(async () => {
       await getAccounts();
       await fetchData();
+
     });
 
     return {
@@ -308,6 +342,7 @@ export default {
       setMaxInput,
       buyTokens,
       connectToMetaMask, // Expose the connectToMetaMask function to the template
+        mintDoCToken,
     };
   },
 };
