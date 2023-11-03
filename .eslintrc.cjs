@@ -28,7 +28,7 @@ module.exports = {
 
     // https://github.com/prettier/eslint-config-prettier#installation
     // usage with Prettier, provided by 'eslint-config-prettier'.
-    'prettier'
+    'airbnb-base'
   ],
 
   plugins: [
@@ -57,6 +57,21 @@ module.exports = {
 
   // add your custom rules here
   rules: {
+
+    'no-param-reassign': 'off',
+    'no-void': 'off',
+    'no-nested-ternary': 'off',
+    'max-classes-per-file': 'off',
+
+    'import/first': 'off',
+    'import/named': 'error',
+    'import/namespace': 'error',
+    'import/default': 'error',
+    'import/export': 'error',
+    'import/extensions': 'off',
+    'import/no-unresolved': 'off',
+    'import/no-extraneous-dependencies': 'off',
+    'import/prefer-default-export': 'off',
 
     'prefer-promise-reject-errors': 'off',
 

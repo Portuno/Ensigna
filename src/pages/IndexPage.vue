@@ -154,18 +154,16 @@
 </template>
 
 <script>
-import {onMounted, ref} from "vue";
-import lottoTickets from '../contractsTokens/LottoTickets.json';
-import {ethers, parseEther} from 'ethers';
-import {useQuasar} from 'quasar';
+import { onMounted, ref } from 'vue';
+import { ethers, parseEther } from 'ethers';
+import { useQuasar } from 'quasar';
+import Utils from 'src/Utils';
 import collectionConf from '../collectionConfig.json';
-import Utils from "src/Utils";
-
-
+import lottoTickets from '../contractsTokens/LottoTickets.json';
 
 export default {
   setup() {
-    const tab = ref("Pools"); // Set the default tab to "Pools"
+    const tab = ref('Pools'); // Set the default tab to "Pools"
     const showNewCard = ref(false); // Initially hide the new card
     const quantity = ref(1); // Initialize input value
     const totalMinted = ref(0);
@@ -173,66 +171,60 @@ export default {
     const $q = useQuasar();
 
     const mintDoCToken = async () => {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        // The ABI of the DocToken contract (simplified for this example)
-        const docTokenAbi = [
-            'function mintDocVendors(uint256 btcToMint, address vendorAccount) public payable'
-        ];
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      // The ABI of the DocToken contract (simplified for this example)
+      const docTokenAbi = [
+        'function mintDocVendors(uint256 btcToMint, address vendorAccount) public payable',
+      ];
 
-        // Create a contract instance
-        const docTokenContract = new ethers.Contract(collectionConf.docContract, docTokenAbi, signer);
+      // Create a contract instance
+      const docTokenContract = new ethers.Contract(collectionConf.mocContract, docTokenAbi, signer);
 
-        // The amount of tokens to mint
-        const amount =  parseEther('0.0009');
+      // The amount of tokens to mint
+      const amount = parseEther('0.0009');
       //  const rbtcPrice =
-        const overrides = {
-            value: parseEther('0.001'),
-        };
+      const overrides = {
+        value: parseEther('0.001'),
+      };
 
-        // Call the mint function
-        const tx = await docTokenContract.mintDocVendors(amount,'0x84b895A1b7be8fAc64d43757479281Bf0b5E3719',overrides);
+      // Call the mint function
+      const tx = await docTokenContract.mintDocVendors(amount, collectionConf.vendorDocContract, overrides);
 
-        // Wait for the transaction to be mined
-        const receipt = await tx.wait();
-        console.log('Transaction mined:', receipt);
-
-    }
-    const registerUser = async () => {
-      if (accounts.value[0].match(/^0x[a-fA-f0-9]{40}$/)) {
-        const datas = {
-          id: uuidv4(),
-          adress: accounts.value[0],
-        };
-        ApiHelper.addToCollection('users', datas).then(async () => {
-          $q.notify({
-            message: 'You are now registered',
-            color: 'positive',
-          });
-          await checkIfUserIsRegistered();
-        }).catch(() => {
-          $q.notify({
-            message: 'errror',
-            color: 'negative',
-          });
-        });
-      }
+      // Wait for the transaction to be mined
+      const receipt = await tx.wait();
+      console.log('Transaction mined:', receipt);
+    };
+    const fetchData = async () => {
+      Utils.showLoader();
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      // eslint-disable-next-line no-unused-vars
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
+      totalMinted.value = String(await contract.getCapital());
+      Utils.closeLoader();
     };
     const buyTokens = async () => {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
       const docTokenContract = new ethers.Contract('0xCB46c0ddc60D18eFEB0E586C17Af6ea36452Dae0', [
-        'function approve(address spender, uint256 amount) external returns (bool)'
+        'function approve(address spender, uint256 amount) external returns (bool)',
       ], signer);
-      accounts.value = await window.ethereum.request({method: 'eth_requestAccounts'});
-      const overrides = {
-        from: accounts.value[0],
-        value: parseEther(String(1 * quantity.value)),
-      };
+      accounts.value = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      // const overrides = {
+      //    from: accounts.value[0],
+      //    value: parseEther(String(1 * quantity.value)),
+      //  };
       try {
         Utils.showLoader();
-        await docTokenContract.approve(collectionConf.adress, overrides.value);
+        const aprovement = await docTokenContract.approve(
+          collectionConf.adress,
+          parseEther(String(1 * quantity.value)),
+        );
+        const approvalReceipt = await aprovement.wait();
+        console.log('Approval Receipt:', approvalReceipt);
+
         const transaction = await contract.mintWithDOC(accounts.value[0], quantity.value);
         const res = await transaction.wait();
         console.log('res   ', res);
@@ -253,28 +245,30 @@ export default {
     };
     const getAccounts = async () => {
       if (typeof window.ethereum !== 'undefined') {
-        accounts.value = await window.ethereum.request({method: 'eth_requestAccounts'});
+        accounts.value = await window.ethereum.request({ method: 'eth_requestAccounts' });
       }
     };
-    const fetchData = async () => {
-      Utils.showLoader();
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      // eslint-disable-next-line no-unused-vars
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
-      totalMinted.value = String(await contract.getCapital());
-      Utils.closeLoader();
-    };
+
+    //   const getTotalDocOnContract = async () => {
+    //     Utils.showLoader();
+    //     const provider = new ethers.BrowserProvider(window.ethereum);
+    // eslint-disable-next-line no-unused-vars
+    //     const signer = await provider.getSigner();
+    //    const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
+    //     const totalDocOnContract = String(await contract.getDocAmountOnContract());
+    //    console.log('totalDocOnContract  ', totalDocOnContract);
+    //    Utils.closeLoader();
+    //  };
     const connectToMetaMask = async () => {
       try {
         // Check if MetaMask is installed
-        if (typeof window.ethereum !== "undefined") {
+        if (typeof window.ethereum !== 'undefined') {
           // Specify the Rootstock Network's RPC URL
-          const rpcUrl = "https://public-node.testnet.rsk.co/";
+          const rpcUrl = 'https://public-node.testnet.rsk.co/';
 
           // Request access to the user's MetaMask account on the Rootstock Network
           await window.ethereum.request({
-            method: "wallet_addEthereumChain",
+            method: 'wallet_addEthereumChain',
             params: [
               {
                 chainId: '0x1f',
@@ -290,16 +284,16 @@ export default {
           });
 
           // Connect to the Rootstock Network
-          await window.ethereum.request({method: "eth_requestAccounts"});
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
 
           // You are now connected to the Rootstock Network
-          console.log("Connected to Rootstock Network!");
+          console.log('Connected to Rootstock Network!');
         } else {
           // MetaMask is not installed
-          console.error("MetaMask is not installed.");
+          console.error('MetaMask is not installed.');
         }
       } catch (error) {
-        console.error("Error connecting to MetaMask:", error);
+        console.error('Error connecting to MetaMask:', error);
       }
     };
 
@@ -323,11 +317,10 @@ export default {
       quantity.value = 100; // Set the input value to the maximum value (adjust as needed)
     };
 
-
     onMounted(async () => {
       await getAccounts();
       await fetchData();
-
+      // await getTotalDocOnContract();
     });
 
     return {
@@ -342,7 +335,7 @@ export default {
       setMaxInput,
       buyTokens,
       connectToMetaMask, // Expose the connectToMetaMask function to the template
-        mintDoCToken,
+      mintDoCToken,
     };
   },
 };

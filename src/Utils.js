@@ -26,8 +26,6 @@ export default class Utils {
     );
   }
 
-
-
   static showLoader(message = null) {
     Loading.show({
       spinner: QSpinnerCube,
