@@ -189,6 +189,7 @@ export default {
       };
 
       // Call the mint function
+      // eslint-disable-next-line max-len
       const tx = await docTokenContract.mintDocVendors(amount, collectionConf.vendorDocContract, overrides);
 
       // Wait for the transaction to be mined
@@ -201,7 +202,11 @@ export default {
       // eslint-disable-next-line no-unused-vars
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
-      totalMinted.value = String(await contract.getCapital());
+      try {
+        totalMinted.value = String(await contract.getCapital());
+      } catch (error) {
+        console.error('Error fetching capital:', error);
+      }
       Utils.closeLoader();
     };
     const buyTokens = async () => {
