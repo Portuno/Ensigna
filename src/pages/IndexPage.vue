@@ -100,55 +100,58 @@
           <!-- Buy button -->
           <div class="q-mt-md">
             <q-btn rounded color="primary" label="Buy" @click="buyTokens"/>
+          </div>
+
+          <!-- Input -->
+          <div class="q-mt-md">
+            <q-input
+              outlined
+              v-model="amountOfRbtcToConvertInDoc"
+              type="number"
+              :min="0"
+              :step="1"
+              label="rbtc amont to convert in doc"
+            >
+            </q-input>
+          </div>
+
+          <!-- Buy button -->
+          <div class="q-mt-md">
+              <span> 5% of fees </span> <br>
               <q-btn rounded color="primary" label="Mint Doc" @click="mintDoCToken"/>
           </div>
+
+            <!-- Input -->
+            <div class="q-mt-md">
+                <q-input
+                        outlined
+                        v-model="amountOfdocToRedeam"
+                        type="number"
+                        :min="0"
+                        :step="1"
+                        label="doc to redeam"
+                >
+                </q-input>
+            </div>
+
+            <!-- Buy button -->
+            <div class="q-mt-md">
+                <span> 5% of fees </span> <br>
+                <q-btn rounded color="primary" label="redeam Doc" @click="reclaimDoCToken"/>
+            </div>
+
         </q-card-section>
       </q-card>
     </div>
 
     <!-- Conditional rendering of the staking content -->
     <div v-if="tab === 'Staking'" class="q-mb-md">
-      <!-- Placeholder content for the "Staking" page -->
-      <div class="coming-soon">
-        <div class="text-h6">Staking (Coming Soon)</div>
-        <div class="q-mt-sm">Staking allows you to earn rewar</div>
-      </div>
+      <StakingPanel/>
     </div>
 
     <!-- Conditional rendering of the "PRIZES" page -->
     <div v-if="tab === 'Prizes'" class="q-mb-md prizes-container">
-      <!-- Left card for "IN VAULT" -->
-      <q-card class="prizes-card">
-        <q-card-section>
-          <div class="text-h6">IN VAULT</div>
-          <!-- Display the amount from your data -->
-          <div class="q-mt-sm">{{ inVaultAmount }}</div>
-        </q-card-section>
-      </q-card>
-
-      <!-- Left card for "24 HOURS VOLUME" -->
-      <q-card class="prizes-card">
-        <q-card-section>
-          <div class="text-h6">24 HOURS VOLUME</div>
-          <!-- Display the volume from your data -->
-          <div class="q-mt-sm">{{ volume24Hours }}</div>
-        </q-card-section>
-      </q-card>
-
-      <!-- Right card for "Tickets" -->
-      <q-card class="prizes-card">
-        <q-card-section>
-          <!-- Display the number of tickets from your data -->
-          <div class="text-h6">Tickets</div>
-          <div class="q-mt-sm">{{ userTickets }}</div>
-
-          <!-- Redeem button (disabled and gray) -->
-          <q-btn rounded color="grey" label="Redeem" :disable="true"/>
-
-          <!-- Claim button (yellow circle) -->
-          <q-btn rounded color="warning" label="Claim" class="yellow-circle"/>
-        </q-card-section>
-      </q-card>
+      <PrizesPanel/>
     </div>
   </div>
 </template>
@@ -160,47 +163,112 @@ import { useQuasar } from 'quasar';
 import Utils from 'src/Utils';
 import collectionConf from '../collectionConfig.json';
 import lottoTickets from '../contractsTokens/LottoTickets.json';
+import PrizesPanel from '../components/PrizesPanel.vue';
+import StakingPanel from '../components/StakingPanel.vue';
 
 export default {
+  components: {
+    PrizesPanel,
+    StakingPanel,
+  },
   setup() {
     const tab = ref('Pools'); // Set the default tab to "Pools"
     const showNewCard = ref(false); // Initially hide the new card
     const quantity = ref(1); // Initialize input value
+    const amountOfRbtcToConvertInDoc = ref(0.01);
+    const amountOfdocToRedeam = ref(1);
     const totalMinted = ref(0);
     const accounts = ref([]);
     const $q = useQuasar();
 
+    const connectToMetaMask = async () => {
+      try {
+        // Check if MetaMask is installed
+        if (typeof window.ethereum !== 'undefined') {
+          // Specify the Rootstock Network's RPC URL
+          const rpcUrl = 'https://public-node.testnet.rsk.co/';
+          // Request access to the user's MetaMask account on the Rootstock Network
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: '0x1f',
+                chainName: 'Rsk Testnet',
+                rpcUrls: [rpcUrl],
+                //  nativeCurrency: {
+                //   name: "tRBTC",
+                //   symbol: "tRBTC",
+                //   decimals: 18,
+                // },
+              },
+            ],
+          });
+
+          // Connect to the Rootstock Network
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+        } else {
+          // MetaMask is not installed
+          Utils.showNotify('MetaMask is not installed.');
+        }
+      } catch (error) {
+        Utils.showNotify(`Error connecting to MetaMask:${error}`);
+      }
+    };
+
+    const initializeEthers = () => {
+      window.ethereum.on('chainChanged', async () => {
+        console.log('chainChanged');
+      });
+    };
+
     const mintDoCToken = async () => {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
+      Utils.showLoader();
+      const temPprovider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await temPprovider.getSigner();
       // The ABI of the DocToken contract (simplified for this example)
       const docTokenAbi = [
         'function mintDocVendors(uint256 btcToMint, address vendorAccount) public payable',
       ];
-
       // Create a contract instance
-      const docTokenContract = new ethers.Contract(collectionConf.mocContract, docTokenAbi, signer);
-
+      const mocContract = new ethers.Contract(collectionConf.mocContract, docTokenAbi, signer);
       // The amount of tokens to mint
-      const amount = parseEther('0.0009');
-      //  const rbtcPrice =
+      const amount = parseEther(amountOfRbtcToConvertInDoc.value.toString());
+      const amountToSend = amountOfRbtcToConvertInDoc.value * 1.05;
       const overrides = {
-        value: parseEther('0.001'),
+        value: parseEther(amountToSend.toFixed(10)),
       };
-
-      // Call the mint function
       // eslint-disable-next-line max-len
-      const tx = await docTokenContract.mintDocVendors(amount, collectionConf.vendorDocContract, overrides);
-
+      const tx = await mocContract.mintDocVendors(amount, collectionConf.vendorDocContract, overrides);
       // Wait for the transaction to be mined
       const receipt = await tx.wait();
       console.log('Transaction mined:', receipt);
+      Utils.closeLoader();
+    };
+
+    const reclaimDoCToken = async () => {
+      Utils.showLoader();
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const mocAbi = [
+        'function docAmountToRedeem(address redeemer) public view returns(uint256)',
+        'function redeemDocRequest(uint256 docAmount) public nonpayable whenNotPaused whenSettlementReady',
+        'function redeemFreeDoc(uint256 docAmount) public nonpayable',
+      ];
+      const mocContract = new ethers.Contract(collectionConf.mocContract, mocAbi, signer);
+      // eslint-disable-next-line max-len
+      // const approve = await mocContract.redeemDocRequest(parseEther(amountOfdocToRedeam.value.toString()));
+      // console.log('approve   ', approve);
+      const tx = await mocContract.redeemFreeDoc(parseEther(amountOfdocToRedeam.value.toString()));
+      // Wait for the transaction to be mined
+      const receipt = await tx.wait();
+      console.log('Transaction mined:', receipt);
+      Utils.closeLoader();
     };
     const fetchData = async () => {
       Utils.showLoader();
-      const provider = new ethers.BrowserProvider(window.ethereum);
       // eslint-disable-next-line no-unused-vars
-      const signer = await provider.getSigner();
+      const temPprovider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await temPprovider.getSigner();
       const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
       try {
         totalMinted.value = String(await contract.getCapital());
@@ -217,10 +285,6 @@ export default {
         'function approve(address spender, uint256 amount) external returns (bool)',
       ], signer);
       accounts.value = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      // const overrides = {
-      //    from: accounts.value[0],
-      //    value: parseEther(String(1 * quantity.value)),
-      //  };
       try {
         Utils.showLoader();
         const aprovement = await docTokenContract.approve(
@@ -254,54 +318,6 @@ export default {
       }
     };
 
-    //   const getTotalDocOnContract = async () => {
-    //     Utils.showLoader();
-    //     const provider = new ethers.BrowserProvider(window.ethereum);
-    // eslint-disable-next-line no-unused-vars
-    //     const signer = await provider.getSigner();
-    //    const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
-    //     const totalDocOnContract = String(await contract.getDocAmountOnContract());
-    //    console.log('totalDocOnContract  ', totalDocOnContract);
-    //    Utils.closeLoader();
-    //  };
-    const connectToMetaMask = async () => {
-      try {
-        // Check if MetaMask is installed
-        if (typeof window.ethereum !== 'undefined') {
-          // Specify the Rootstock Network's RPC URL
-          const rpcUrl = 'https://public-node.testnet.rsk.co/';
-
-          // Request access to the user's MetaMask account on the Rootstock Network
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [
-              {
-                chainId: '0x1f',
-                chainName: 'Rsk Testnet',
-                rpcUrls: [rpcUrl],
-                //  nativeCurrency: {
-                //   name: "tRBTC",
-                //   symbol: "tRBTC",
-                //   decimals: 18,
-                // },
-              },
-            ],
-          });
-
-          // Connect to the Rootstock Network
-          await window.ethereum.request({ method: 'eth_requestAccounts' });
-
-          // You are now connected to the Rootstock Network
-          console.log('Connected to Rootstock Network!');
-        } else {
-          // MetaMask is not installed
-          console.error('MetaMask is not installed.');
-        }
-      } catch (error) {
-        console.error('Error connecting to MetaMask:', error);
-      }
-    };
-
     const openNewCard = () => {
       showNewCard.value = true; // Show the new card when "To Access" is clicked
     };
@@ -323,9 +339,9 @@ export default {
     };
 
     onMounted(async () => {
+      initializeEthers();
       await getAccounts();
       await fetchData();
-      // await getTotalDocOnContract();
     });
 
     return {
@@ -333,6 +349,8 @@ export default {
       showNewCard,
       quantity,
       totalMinted,
+      amountOfRbtcToConvertInDoc,
+      amountOfdocToRedeam,
       openNewCard,
       closeNewCard,
       incrementInput,
@@ -341,6 +359,7 @@ export default {
       buyTokens,
       connectToMetaMask, // Expose the connectToMetaMask function to the template
       mintDoCToken,
+      reclaimDoCToken,
     };
   },
 };
