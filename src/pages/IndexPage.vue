@@ -162,9 +162,10 @@ import { ethers, parseEther } from 'ethers';
 import { useQuasar } from 'quasar';
 import Utils from 'src/Utils';
 import collectionConf from '../collectionConfig.json';
-import lottoTickets from '../contractsTokens/LottoTickets.json';
+import lottoTickets from '../contractsTokens/LottoTicketsERC20.json';
 import PrizesPanel from '../components/PrizesPanel.vue';
 import StakingPanel from '../components/StakingPanel.vue';
+import ApiHelper from '../ApiHelper';
 
 export default {
   components: {
@@ -195,11 +196,6 @@ export default {
                 chainId: '0x1f',
                 chainName: 'Rsk Testnet',
                 rpcUrls: [rpcUrl],
-                //  nativeCurrency: {
-                //   name: "tRBTC",
-                //   symbol: "tRBTC",
-                //   decimals: 18,
-                // },
               },
             ],
           });
@@ -256,8 +252,8 @@ export default {
       ];
       const mocContract = new ethers.Contract(collectionConf.mocContract, mocAbi, signer);
       // eslint-disable-next-line max-len
-      // const approve = await mocContract.redeemDocRequest(parseEther(amountOfdocToRedeam.value.toString()));
-      // console.log('approve   ', approve);
+      const approve = await mocContract.redeemDocRequest(parseEther(amountOfdocToRedeam.value.toString()));
+      console.log('approve   ', approve);
       const tx = await mocContract.redeemFreeDoc(parseEther(amountOfdocToRedeam.value.toString()));
       // Wait for the transaction to be mined
       const receipt = await tx.wait();
@@ -269,7 +265,8 @@ export default {
       // eslint-disable-next-line no-unused-vars
       const temPprovider = new ethers.BrowserProvider(window.ethereum);
       const signer = await temPprovider.getSigner();
-      const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
+      // eslint-disable-next-line max-len
+      const contract = new ethers.Contract(collectionConf.addressLottoTicket, lottoTickets.abi, signer);
       try {
         totalMinted.value = String(await contract.getCapital());
       } catch (error) {
@@ -280,7 +277,8 @@ export default {
     const buyTokens = async () => {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-      const contract = new ethers.Contract(collectionConf.adress, lottoTickets.abi, signer);
+      // eslint-disable-next-line max-len
+      const contract = new ethers.Contract(collectionConf.addressLottoTicket, lottoTickets.abi, signer);
       const docTokenContract = new ethers.Contract('0xCB46c0ddc60D18eFEB0E586C17Af6ea36452Dae0', [
         'function approve(address spender, uint256 amount) external returns (bool)',
       ], signer);
@@ -288,15 +286,12 @@ export default {
       try {
         Utils.showLoader();
         const aprovement = await docTokenContract.approve(
-          collectionConf.adress,
+          collectionConf.addressLottoTicket,
           parseEther(String(1 * quantity.value)),
         );
-        const approvalReceipt = await aprovement.wait();
-        console.log('Approval Receipt:', approvalReceipt);
-
-        const transaction = await contract.mintWithDOC(accounts.value[0], quantity.value);
-        const res = await transaction.wait();
-        console.log('res   ', res);
+        await aprovement.wait();
+        const transaction = await contract.mintWithDOC(quantity.value);
+        await transaction.wait();
         $q.notify({
           message: 'Mint done',
           color: 'positive',
@@ -310,6 +305,40 @@ export default {
           message: err.message,
           color: 'negative',
         });
+      }
+    };
+
+    const getApiTransaction = async () => {
+      const apiUrl = `https://rootstock-testnet.blockscout.com/api/v2/addresses/${accounts.value[0]}/token-transfers?type=ERC-20%2CERC-721%2CERC-1155&filter=to%20%7C%20from&token=${collectionConf.addressLottoTicket}`;
+      const response = await ApiHelper.genericGet(apiUrl);
+      return response.data.items;
+    };
+
+    const addTokenToMetaMask = async () => {
+      try {
+        if (typeof window.ethereum !== 'undefined') {
+          const transac = await getApiTransaction();
+          if (transac && transac.length < 1) {
+            const tokenImage = 'https://purple-numerous-ocelot-627.mypinata.cloud/ipfs/QmPoaUWzUguNwop29qS575NfSWaBYKP68KSTGLnBeYYQU9?_gl=1*1re08py*_ga*NTU0OTM4MjAxLjE2OTU4MTA1NzY.*_ga_5RMPXG14TE*MTY5OTk3MDUzNy4xOC4xLjE2OTk5NzA5ODAuMzUuMC4w';
+            await window.ethereum.request({
+              method: 'wallet_watchAsset',
+              params: {
+                type: 'ERC20',
+                options: {
+                  address: collectionConf.addressLottoTicket,
+                  symbol: 'LTT',
+                  decimals: 0,
+                  image: tokenImage,
+                },
+              },
+            });
+          }
+          // MetaMask will handle the case if the token is already added
+        } else {
+          console.log('MetaMask is not installed');
+        }
+      } catch (error) {
+        console.error(error);
       }
     };
     const getAccounts = async () => {
@@ -342,6 +371,7 @@ export default {
       initializeEthers();
       await getAccounts();
       await fetchData();
+      await addTokenToMetaMask();
     });
 
     return {
