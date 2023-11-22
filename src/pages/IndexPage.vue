@@ -140,6 +140,24 @@
                 <q-btn rounded color="primary" label="redeam Doc" @click="reclaimDoCToken"/>
             </div>
 
+          <!-- Input -->
+          <div class="q-mt-md">
+            <q-input
+              outlined
+              v-model="amountOfLTTToRedeem"
+              type="number"
+              :min="0"
+              :step="1"
+              label="tickets LTT to redeam"
+            >
+            </q-input>
+          </div>
+
+          <!-- Buy button -->
+          <div class="q-mt-md">
+            <q-btn rounded color="primary" label="redeem Ticket" @click="redeemTickets"/>
+          </div>
+
         </q-card-section>
       </q-card>
     </div>
@@ -178,6 +196,7 @@ export default {
     const quantity = ref(1); // Initialize input value
     const amountOfRbtcToConvertInDoc = ref(0.01);
     const amountOfdocToRedeam = ref(1);
+    const amountOfLTTToRedeem = ref(1);
     const totalMinted = ref(0);
     const accounts = ref([]);
     const $q = useQuasar();
@@ -236,8 +255,7 @@ export default {
       // eslint-disable-next-line max-len
       const tx = await mocContract.mintDocVendors(amount, collectionConf.vendorDocContract, overrides);
       // Wait for the transaction to be mined
-      const receipt = await tx.wait();
-      console.log('Transaction mined:', receipt);
+      await tx.wait();
       Utils.closeLoader();
     };
 
@@ -252,12 +270,10 @@ export default {
       ];
       const mocContract = new ethers.Contract(collectionConf.mocContract, mocAbi, signer);
       // eslint-disable-next-line max-len
-      const approve = await mocContract.redeemDocRequest(parseEther(amountOfdocToRedeam.value.toString()));
-      console.log('approve   ', approve);
+      await mocContract.redeemDocRequest(parseEther(amountOfdocToRedeam.value.toString()));
       const tx = await mocContract.redeemFreeDoc(parseEther(amountOfdocToRedeam.value.toString()));
       // Wait for the transaction to be mined
-      const receipt = await tx.wait();
-      console.log('Transaction mined:', receipt);
+      await tx.wait();
       Utils.closeLoader();
     };
     const fetchData = async () => {
@@ -290,7 +306,34 @@ export default {
           parseEther(String(1 * quantity.value)),
         );
         await aprovement.wait();
-        const transaction = await contract.mintWithDOC(quantity.value);
+        const transaction = await contract.mint(quantity.value);
+        await transaction.wait();
+        $q.notify({
+          message: 'Mint done',
+          color: 'positive',
+        });
+        await fetchData();
+        Utils.closeLoader();
+      } catch (err) {
+        console.log('err  ', err);
+        Utils.closeLoader();
+        $q.notify({
+          message: err.message,
+          color: 'negative',
+        });
+      }
+    };
+
+    const redeemTickets = async () => {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      // eslint-disable-next-line max-len
+      const contract = new ethers.Contract(collectionConf.addressLottoTicket, lottoTickets.abi, signer);
+      accounts.value = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      try {
+        Utils.showLoader();
+
+        const transaction = await contract.redeemTicket(amountOfLTTToRedeem.value);
         await transaction.wait();
         $q.notify({
           message: 'Mint done',
@@ -309,16 +352,21 @@ export default {
     };
 
     const getApiTransaction = async () => {
-      const apiUrl = `https://rootstock-testnet.blockscout.com/api/v2/addresses/${accounts.value[0]}/token-transfers?type=ERC-20%2CERC-721%2CERC-1155&filter=to%20%7C%20from&token=${collectionConf.addressLottoTicket}`;
-      const response = await ApiHelper.genericGet(apiUrl);
-      return response.data.items;
+      try {
+        const apiUrl = `https://rootstock-testnet.blockscout.com/api/v2/addresses/${accounts.value[0]}/token-transfers?type=ERC-20%2CERC-721%2CERC-1155&filter=to%20%7C%20from&token=${collectionConf.addressLottoTicket}`;
+        const response = await ApiHelper.genericGet(apiUrl);
+        return response.data.items;
+      } catch {
+        return [];
+      }
     };
 
     const addTokenToMetaMask = async () => {
       try {
         if (typeof window.ethereum !== 'undefined') {
           const transac = await getApiTransaction();
-          if (transac && transac.length < 1) {
+          console.log('transac   ', transac);
+          if (transac.length === 0) {
             const tokenImage = 'https://purple-numerous-ocelot-627.mypinata.cloud/ipfs/QmPoaUWzUguNwop29qS575NfSWaBYKP68KSTGLnBeYYQU9?_gl=1*1re08py*_ga*NTU0OTM4MjAxLjE2OTU4MTA1NzY.*_ga_5RMPXG14TE*MTY5OTk3MDUzNy4xOC4xLjE2OTk5NzA5ODAuMzUuMC4w';
             await window.ethereum.request({
               method: 'wallet_watchAsset',
@@ -381,6 +429,7 @@ export default {
       totalMinted,
       amountOfRbtcToConvertInDoc,
       amountOfdocToRedeam,
+      amountOfLTTToRedeem,
       openNewCard,
       closeNewCard,
       incrementInput,
@@ -390,6 +439,7 @@ export default {
       connectToMetaMask, // Expose the connectToMetaMask function to the template
       mintDoCToken,
       reclaimDoCToken,
+      redeemTickets,
     };
   },
 };
